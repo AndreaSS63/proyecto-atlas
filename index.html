@@ -26,8 +26,19 @@
   .card{background:var(--panel);border:1px solid var(--muted);border-radius:var(--radius);padding:16px;box-shadow:0 14px 30px rgba(0,0,0,.3)}
   .row{display:flex;flex-wrap:wrap;gap:16px}
   .col{flex:1 1 320px;min-width:280px}
-  .imgbox{border:1px solid #23262b;border-radius:12px;overflow:hidden;background:#0e1116}
+  .imgbox{border:1px solid #23262b;border-radius:12px;overflow:hidden;background:#0e1116;position:relative}
   #docImage{display:block;width:100%;height:auto;filter:brightness(var(--b,1)) contrast(var(--c,1));transition:filter .2s ease}
+  
+  /* Caja bloqueada */
+  .imgbox.locked::after{
+    content:"Bloqueado";
+    position:absolute;inset:0;
+    display:grid;place-items:center;
+    background:rgba(0,0,0,.45);
+    font-weight:700;letter-spacing:.08em;
+  }
+  .blur{filter:blur(6px) brightness(.85) contrast(.9);}
+  
   .controls{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
   .controls label{font-size:12px;color:var(--sub);display:flex;flex-direction:column;gap:6px}
   input[type="range"]{width:200px}
@@ -45,6 +56,9 @@
   .modal p{margin:.2rem 0 .8rem 0;color:var(--sub)}
   .modal .row{gap:8px}
   .modal input{flex:1 1 180px;padding:10px;border-radius:10px;border:1px solid #2a2f36;background:#0b0f14;color:var(--text)}
+  
+  /* Controles deshabilitados */
+  .controls.disabled{opacity:.5;pointer-events:none;}
 </style>
 </head>
 <body>
@@ -53,7 +67,7 @@
     <div class="badge"><img src="assets/images/logo_proyecto_atlas.png" alt="Logo"></div>
     <div class="meta">
       <h1>Proyecto Atlas — Archivo de Pistas</h1>
-      <div class="ref">Expediente: ATLAS‑03 · Unidad Especial · Acceso restringido</div>
+      <div class="ref">Expediente: ATLAS-03 · Unidad Especial · Acceso restringido</div>
     </div>
   </div>
 </header>
@@ -79,7 +93,7 @@
           <label>Contraste
             <input id="ct" type="range" min="0.5" max="2" step="0.01" value="1">
           </label>
-          <button id="reveal">Usar pista (auto‑ajuste)</button>
+          <button id="reveal">Usar pista (auto-ajuste)</button>
           <button id="reset" class="secondary">Reiniciar</button>
           <button id="download" class="ghost">Descargar</button>
         </div>
@@ -115,35 +129,9 @@
 
 <script>
 const DOCS = [
-  {
-    id:"doc1",
-    title:"ATLAS‑03/001",
-    ref:"ATLAS‑03/DOC‑1",
-    intro:"Imagen encontrada tras revisar la agenda de Víctor. Ajusta brillo/contraste para revelar detalles.",
-    img:"laboratorio_acto1.png",
-    auto:{b:1.35,c:1.6},
-    locked:false
-  },
-  {
-    id:"doc2",
-    title:"ATLAS‑03/002",
-    ref:"ATLAS‑03/DOC‑2",
-    intro:"Contenido protegido. Requiere la clave descubierta en el Acto 1.",
-    img:"locked_placeholder.png",
-    auto:{b:1,c:1},
-    locked:true,
-    pass:"Carmen1706"
-  },
-  {
-    id:"doc3",
-    title:"ATLAS‑03/003",
-    ref:"ATLAS‑03/DOC‑3",
-    intro:"Acceso restringido. Necesitas una segunda clave del Acto 2.",
-    img:"locked_placeholder.png",
-    auto:{b:1,c:1},
-    locked:true,
-    pass:"MUELLE"
-  }
+  { id:"doc1", title:"ATLAS-03/001", ref:"ATLAS-03/DOC-1", intro:"Imagen encontrada tras revisar la agenda de Víctor. Ajusta brillo/contraste para revelar detalles.", img:"laboratorio_acto1.png", auto:{b:1.35,c:1.6}, locked:false },
+  { id:"doc2", title:"ATLAS-03/002", ref:"ATLAS-03/DOC-2", intro:"Contenido protegido. Requiere la clave descubierta en el Acto 1.", img:"locked_placeholder.png", auto:{b:1,c:1}, locked:true, pass:"Carmen1706" },
+  { id:"doc3", title:"ATLAS-03/003", ref:"ATLAS-03/DOC-3", intro:"Acceso restringido. Necesitas una segunda clave del Acto 2.", img:"locked_placeholder.png", auto:{b:1,c:1}, locked:true, pass:"MUELLE" }
 ];
 
 const $ = sel => document.querySelector(sel);
@@ -156,8 +144,14 @@ if(!state.unlocked) state.unlocked = { doc1:true };
 if(!state.notes) state.notes = {};
 if(!state.current) state.current = "doc1";
 
-const docList = $("#docList");
+function setControlsDisabled(v){
+  const ids = ["br","ct","reveal","reset","download"];
+  ids.forEach(id => document.getElementById(id).disabled = v);
+  document.querySelector(".controls").classList.toggle("disabled", v);
+}
+
 function renderList(){
+  const docList = $("#docList");
   docList.innerHTML = "";
   DOCS.forEach(d=>{
     const li = document.createElement("button");
@@ -170,12 +164,8 @@ function renderList(){
     const lock = document.createElement("span");
     lock.className="lock";
     const isOpen = state.unlocked[d.id] || !d.locked;
-// Solo mostramos candado si el doc está BLOQUEADO
-if (d.locked) {
-  lock.textContent = isOpen ? "🔓" : "🔒";
-} else {
-  lock.textContent = ""; // sin icono para docs abiertos/no bloqueados
-}
+    if (d.locked) lock.textContent = isOpen ? "🔓" : "🔒";
+    else lock.textContent = "";
     li.appendChild(name); li.appendChild(lock);
     if(state.current===d.id) li.setAttribute("aria-current","true");
     li.onclick = ()=> openDoc(d.id);
@@ -191,15 +181,23 @@ function openDoc(id){
   $("#refId").textContent = d.ref;
   $("#docTitle").textContent = d.title;
   $("#docIntro").textContent = d.intro;
-
   $("#br").value = 1; $("#ct").value = 1; setFilters();
 
+  const box = document.querySelector(".imgbox");
+  const img = $("#docImage");
+
   if(isOpen){
-    $("#docImage").src = d.img;
-    $("#docImage").alt = d.title;
+    img.src = d.img;
+    img.alt = d.title;
+    img.classList.remove("blur");
+    box.classList.remove("locked");
+    setControlsDisabled(false);
   } else {
-    $("#docImage").src = d.img || "";
-    $("#docImage").alt = "Documento bloqueado";
+    img.src = d.img || "";
+    img.alt = "Documento bloqueado";
+    img.classList.add("blur");
+    box.classList.add("locked");
+    setControlsDisabled(true);
     unlockDialog.showModal();
   }
 
@@ -245,18 +243,24 @@ document.getElementById("unlockBtn").onclick = (ev)=>{
   if((d.pass||"").toLowerCase() === code.toLowerCase()){
     state.unlocked[d.id] = true; saveState(state);
     document.getElementById("unlockMsg").textContent = "Desbloqueado ✅";
-    setTimeout(()=>{ unlockDialog.close(); openDoc(d.id); }, 300);
+    setTimeout(()=>{
+      unlockDialog.close();
+      document.querySelector(".imgbox").classList.remove("locked");
+      document.getElementById("docImage").classList.remove("blur");
+      setControlsDisabled(false);
+      openDoc(d.id);
+    }, 300);
   } else {
     document.getElementById("unlockMsg").textContent = "Clave incorrecta.";
   }
 };
 unlockDialog.addEventListener("close", ()=>{
-  document.getElementById("unlockInput").value=""; document.getElementById("unlockMsg").textContent="";
+  document.getElementById("unlockInput").value=""; 
+  document.getElementById("unlockMsg").textContent="";
 });
 
 renderList();
 openDoc(state.current);
-
 let t=0; document.getElementById("docImage").addEventListener('touchend', ()=>{
   const now=Date.now(); if(now-t<350){ document.getElementById("reveal").click(); } t=now;
 });
