@@ -24,8 +24,6 @@
   .doc .name{font-size:14px}
   .doc .lock{font-size:12px;opacity:.8}
   .card{background:var(--panel);border:1px solid var(--muted);border-radius:var(--radius);padding:16px;box-shadow:0 14px 30px rgba(0,0,0,.3)}
-  .row{display:flex;flex-wrap:wrap;gap:16px}
-  .col{flex:1 1 320px;min-width:280px}
   .imgbox{border:1px solid #23262b;border-radius:12px;overflow:hidden;background:#0e1116;position:relative}
   #docImage{display:block;width:100%;height:auto;filter:brightness(var(--b,1)) contrast(var(--c,1));transition:filter .2s ease}
   .imgbox.locked::after{
@@ -42,8 +40,6 @@
   button.secondary{background:#1b232d}
   button.ghost{background:transparent;border:1px solid #2a2f36}
   .hint{font-size:12px;color:var(--sub);margin-top:6px}
-  .notes{border:1px dashed #2a2f36;border-radius:12px;padding:10px;background:#0e1116}
-  .notes textarea{width:100%;min-height:160px;background:transparent;color:var(--text);border:none;outline:none;resize:vertical;font:inherit}
   .nav{display:flex;justify-content:space-between;gap:8px;margin-top:12px}
   .tag{display:inline-flex;gap:8px;align-items:center;font-size:12px;color:var(--sub)}
   dialog{border:none;border-radius:16px;padding:0;max-width:420px;width:calc(100% - 24px);background:#0e1116;color:var(--text)}
@@ -60,7 +56,7 @@
   <div class="brand">
     <div class="badge"><img src="logo_proyecto_atlas.png" alt="Logo"></div>
     <div class="meta">
-      <h1>Proyecto Atlas — Archivo de Pistas</h1>
+      <h1>Proyecto Atlas — Archivo</h1>
       <div class="ref">Expediente: ATLAS-03 · Unidad Especial · Acceso restringido</div>
     </div>
   </div>
@@ -74,35 +70,23 @@
   </aside>
 
   <section class="card" aria-live="polite">
-    <div class="row">
-      <div class="col">
-        <div class="tag">Ref: <span id="refId">—</span></div>
-        <h2 id="docTitle" style="margin:.3rem 0 0.6rem 0">Documento</h2>
-        <p id="docIntro" class="hint"></p>
-        <div class="imgbox"><img id="docImage" alt=""></div>
-        <div class="controls">
-          <label>Brillo
-            <input id="br" type="range" min="0.5" max="2" step="0.01" value="1">
-          </label>
-          <label>Contraste
-            <input id="ct" type="range" min="0.5" max="2" step="0.01" value="1">
-          </label>
-          <button id="reset" class="secondary">Reiniciar</button>
-          <button id="download" class="ghost">Descargar</button>
-        </div>
-        <p class="hint">Consejo: la verdad a veces aparece en las sombras.</p>
-      </div>
-
-      <div class="col">
-        <h3 style="margin:4px 0 8px 0">Notas</h3>
-        <div class="notes">
-          <textarea id="notes" placeholder="Anota aquí tus hallazgos."></textarea>
-        </div>
-        <div class="nav">
-          <button id="prev" class="ghost">← Anterior</button>
-          <button id="next">Siguiente →</button>
-        </div>
-      </div>
+    <div class="tag">Ref: <span id="refId">—</span></div>
+    <h2 id="docTitle" style="margin:.3rem 0 0.6rem 0">Documento</h2>
+    <p id="docIntro" class="hint"></p>
+    <div class="imgbox"><img id="docImage" alt=""></div>
+    <div class="controls">
+      <label>Brillo
+        <input id="br" type="range" min="0.5" max="2" step="0.01" value="1">
+      </label>
+      <label>Contraste
+        <input id="ct" type="range" min="0.5" max="2" step="0.01" value="1">
+      </label>
+      <button id="reset" class="secondary">Reiniciar</button>
+      <button id="download" class="ghost">Descargar</button>
+    </div>
+    <div class="nav">
+      <button id="prev" class="ghost">← Anterior</button>
+      <button id="next">Siguiente →</button>
     </div>
   </section>
 </main>
@@ -124,13 +108,13 @@
 localStorage.removeItem("atlas_web_state_v1");
 
 const DOCS = [
-  { id:"doc1", title:"ATLAS-03/001", ref:"ATLAS-03/DOC-1", intro:"Imagen encontrada tras revisar la agenda de Víctor. Ajusta brillo/contraste para revelar detalles.", img:"laboratorio_acto1.png", auto:{b:2,c:2}, locked:false },
+  { id:"doc1", title:"ATLAS-03/001", ref:"ATLAS-03/DOC-1", intro:"Imagen encontrada tras revisar la agenda de Víctor. Ajusta brillo/contraste para revelar detalles.", img:"laboratorio_acto1.png", auto:{b:1.35,c:1.6}, locked:false },
   { id:"doc2", title:"ATLAS-03/002", ref:"ATLAS-03/DOC-2", intro:"Contenido protegido. Requiere la clave descubierta en el Acto 1.", img:"locked_placeholder.png", locked:true, pass:"Carmen1706" },
   { id:"doc3", title:"ATLAS-03/003", ref:"ATLAS-03/DOC-3", intro:"Acceso restringido. Necesitas una segunda clave del Acto 2.", img:"locked_placeholder.png", locked:true, pass:"MUELLE" }
 ];
 
 const $ = sel => document.querySelector(sel);
-let state = { unlocked:{doc1:true}, notes:{}, current:"doc1" };
+let state = { unlocked:{doc1:true}, current:"doc1" };
 
 function setControlsDisabled(v){
   ["br","ct","reset","download"].forEach(id => document.getElementById(id).disabled = v);
@@ -190,7 +174,6 @@ function openDoc(id){
     setFilters();
   }
 
-  $("#notes").value = state.notes[id] || "";
   renderList();
 }
 
@@ -210,9 +193,6 @@ $("#download").onclick = ()=>{
   a.download = d.img.split("/").pop();
   a.click();
 };
-$("#notes").addEventListener("input", e=>{
-  state.notes[state.current] = e.target.value;
-});
 $("#prev").onclick = ()=>{
   const idx = DOCS.findIndex(x=>x.id===state.current);
   if(idx>0) openDoc(DOCS[idx-1].id);
