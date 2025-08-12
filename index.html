@@ -201,7 +201,7 @@ const setFilters = ()=>{
 };
 $("#br").oninput = $("#ct").oninput = setFilters;
 
-$("#reset").onclick = ()=>{ $("#br").value = 1; $("#ct").value = 1; setFilters(); };
+$("#reset").onclick = ()=>{ $("#br").value = 2; $("#ct").value = 2; setFilters(); };
 $("#download").onclick = ()=>{
   const d = DOCS.find(x=>x.id===state.current);
   if(!d) return;
