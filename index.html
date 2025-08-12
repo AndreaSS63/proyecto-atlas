@@ -182,41 +182,48 @@ function openDoc(id){
   $("#refId").textContent = d.ref;
   $("#docTitle").textContent = d.title;
   $("#docIntro").textContent = d.intro;
-  $("#br").value = 1; $("#ct").value = 1; setFilters();
 
   const box = document.querySelector(".imgbox");
   const img = $("#docImage");
 
   if(isOpen){
-    // Mostrar imagen real
     img.src = d.img;
     img.alt = d.title;
-
-    // limpiar estilos de placeholder
-    img.style.background = "";
-    img.style.height = "";
-    img.style.objectFit = "";
-
+    img.classList.remove("blur");
     box.classList.remove("locked");
     setControlsDisabled(false);
-  } else {
-    // Nada de imagen hasta desbloquear
-    img.src = "";
-    img.alt = "Documento bloqueado";
-    // área vacía con altura fija para no colapsar
-    img.style.background = "rgba(0,0,0,0.85)";
-    img.style.height = "320px";      // ajusta si quieres
-    img.style.objectFit = "cover";
 
+    // 🔹 Aplicar valores iniciales como los de auto-ajuste
+    $("#br").value = d.auto.b;
+    $("#ct").value = d.auto.c;
+    setFilters();
+  } else {
+    img.src = d.img || "";
+    img.alt = "Documento bloqueado";
+    img.classList.add("blur");
     box.classList.add("locked");
     setControlsDisabled(true);
     unlockDialog.showModal();
+
+    // 🔹 Reiniciar sliders a 1 si está bloqueado
+    $("#br").value = 1;
+    $("#ct").value = 1;
+    setFilters();
   }
 
   $("#notes").value = state.notes[id] || "";
   renderList();
 }
 
+// Cambiar comportamiento del botón de auto-ajuste
+$("#reveal").onclick = ()=>{
+  const d = DOCS.find(x=>x.id===state.current);
+
+  // 🔹 Estos valores son los "más extremos" que quieres para la pista
+  $("#br").value = 1.7;  // ejemplo, ajusta según tu captura
+  $("#ct").value = 1.4;  // ejemplo, ajusta según tu captura
+  setFilters();
+};
 const setFilters = ()=>{
   const img = $("#docImage");
   img.style.setProperty("--b", $("#br").value);
