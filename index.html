@@ -28,17 +28,16 @@
   .col{flex:1 1 320px;min-width:280px}
   .imgbox{border:1px solid #23262b;border-radius:12px;overflow:hidden;background:#0e1116;position:relative}
   #docImage{display:block;width:100%;height:auto;filter:brightness(var(--b,1)) contrast(var(--c,1));transition:filter .2s ease}
-  
-  /* Caja bloqueada */
+
+  /* Cajetín para bloqueados */
   .imgbox.locked::after{
-    content:"Bloqueado";
-    position:absolute;inset:0;
-    display:grid;place-items:center;
-    background:rgba(0,0,0,.45);
-    font-weight:700;letter-spacing:.08em;
+    content:"Documento bloqueado";
+    position:absolute; inset:0;
+    display:grid; place-items:center;
+    background:rgba(0,0,0,.65);
+    font-weight:700; letter-spacing:.08em;
   }
-  .blur{filter:blur(6px) brightness(.85) contrast(.9);}
-  
+
   .controls{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
   .controls label{font-size:12px;color:var(--sub);display:flex;flex-direction:column;gap:6px}
   input[type="range"]{width:200px}
@@ -56,8 +55,6 @@
   .modal p{margin:.2rem 0 .8rem 0;color:var(--sub)}
   .modal .row{gap:8px}
   .modal input{flex:1 1 180px;padding:10px;border-radius:10px;border:1px solid #2a2f36;background:#0b0f14;color:var(--text)}
-  
-  /* Controles deshabilitados */
   .controls.disabled{opacity:.5;pointer-events:none;}
 </style>
 </head>
@@ -128,6 +125,9 @@
 </dialog>
 
 <script>
+/* 🔄 Borrar progreso en cada carga (como pediste) */
+localStorage.removeItem("atlas_web_state_v1");
+
 const DOCS = [
   { id:"doc1", title:"ATLAS-03/001", ref:"ATLAS-03/DOC-1", intro:"Imagen encontrada tras revisar la agenda de Víctor. Ajusta brillo/contraste para revelar detalles.", img:"laboratorio_acto1.png", auto:{b:1.35,c:1.6}, locked:false },
   { id:"doc2", title:"ATLAS-03/002", ref:"ATLAS-03/DOC-2", intro:"Contenido protegido. Requiere la clave descubierta en el Acto 1.", img:"locked_placeholder.png", auto:{b:1,c:1}, locked:true, pass:"Carmen1706" },
@@ -140,9 +140,12 @@ const loadState = ()=> JSON.parse(localStorage.getItem(stateKey) || "{}");
 const saveState = s => localStorage.setItem(stateKey, JSON.stringify(s));
 
 let state = loadState();
-if(!state.unlocked) state.unlocked = { doc1:true };
+if(!state.unlocked) state.unlocked = { doc1: true };
 if(!state.notes) state.notes = {};
-if(!state.current) state.current = "doc1";
+if(!state.current || !DOCS.find(x=>x.id===state.current)) state.current = "doc1";
+const cur = DOCS.find(x=>x.id===state.current);
+if(cur && cur.locked && !state.unlocked[state.current]) state.current = "doc1";
+saveState(state);
 
 function setControlsDisabled(v){
   const ids = ["br","ct","reveal","reset","download"];
@@ -187,15 +190,26 @@ function openDoc(id){
   const img = $("#docImage");
 
   if(isOpen){
+    // Mostrar imagen real
     img.src = d.img;
     img.alt = d.title;
-    img.classList.remove("blur");
+
+    // limpiar estilos de placeholder
+    img.style.background = "";
+    img.style.height = "";
+    img.style.objectFit = "";
+
     box.classList.remove("locked");
     setControlsDisabled(false);
   } else {
-    img.src = d.img || "";
+    // Nada de imagen hasta desbloquear
+    img.src = "";
     img.alt = "Documento bloqueado";
-    img.classList.add("blur");
+    // área vacía con altura fija para no colapsar
+    img.style.background = "rgba(0,0,0,0.85)";
+    img.style.height = "320px";      // ajusta si quieres
+    img.style.objectFit = "cover";
+
     box.classList.add("locked");
     setControlsDisabled(true);
     unlockDialog.showModal();
@@ -245,8 +259,14 @@ document.getElementById("unlockBtn").onclick = (ev)=>{
     document.getElementById("unlockMsg").textContent = "Desbloqueado ✅";
     setTimeout(()=>{
       unlockDialog.close();
+
+      // limpiar placeholder del cajetín
       document.querySelector(".imgbox").classList.remove("locked");
-      document.getElementById("docImage").classList.remove("blur");
+      const img = document.getElementById("docImage");
+      img.style.background = "";
+      img.style.height = "";
+      img.style.objectFit = "";
+
       setControlsDisabled(false);
       openDoc(d.id);
     }, 300);
@@ -255,12 +275,14 @@ document.getElementById("unlockBtn").onclick = (ev)=>{
   }
 };
 unlockDialog.addEventListener("close", ()=>{
-  document.getElementById("unlockInput").value=""; 
+  document.getElementById("unlockInput").value="";
   document.getElementById("unlockMsg").textContent="";
 });
 
 renderList();
 openDoc(state.current);
+
+// Doble toque (móvil) = auto‑ajuste
 let t=0; document.getElementById("docImage").addEventListener('touchend', ()=>{
   const now=Date.now(); if(now-t<350){ document.getElementById("reveal").click(); } t=now;
 });
