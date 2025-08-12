@@ -24,31 +24,31 @@
   .doc .name{font-size:14px}
   .doc .lock{font-size:12px;opacity:.8}
   .card{background:var(--panel);border:1px solid var(--muted);border-radius:var(--radius);padding:16px;box-shadow:0 14px 30px rgba(0,0,0,.3)}
-  .imgbox{border:1px solid #23262b;border-radius:12px;overflow:hidden;background:#0e1116;position:relative}
+  .tag{display:inline-flex;gap:8px;align-items:center;font-size:12px;color:var(--sub)}
+  .hint{font-size:12px;color:var(--sub);margin-top:6px}
+
+  /* Imagen */
+  .imgbox{border:1px solid #23262b;border-radius:12px;overflow:hidden;background:#0e1116;position:relative;margin-top:8px}
   #docImage{display:block;width:100%;height:auto;filter:brightness(var(--b,1)) contrast(var(--c,1));transition:filter .2s ease}
   .imgbox.locked::after{
     content:"Documento bloqueado";
-    position:absolute; inset:0;
-    display:grid; place-items:center;
-    background:rgba(0,0,0,.65);
-    font-weight:700; letter-spacing:.08em;
+    position:absolute; inset:0; display:grid; place-items:center;
+    background:rgba(0,0,0,.65); font-weight:700; letter-spacing:.08em;
   }
+
+  /* Audio */
+  #audioBox{margin-top:10px}
+  #audioBox .caption{font-size:12px;color:var(--sub);margin-bottom:4px}
+
+  /* Controles */
   .controls{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
   .controls label{font-size:12px;color:var(--sub);display:flex;flex-direction:column;gap:6px}
   input[type="range"]{width:200px}
   button{background:var(--accent);color:white;border:none;border-radius:12px;padding:10px 14px;cursor:pointer;font-weight:600}
   button.secondary{background:#1b232d}
   button.ghost{background:transparent;border:1px solid #2a2f36}
-  .hint{font-size:12px;color:var(--sub);margin-top:6px}
-  .nav{display:flex;justify-content:space-between;gap:8px;margin-top:12px}
-  .tag{display:inline-flex;gap:8px;align-items:center;font-size:12px;color:var(--sub)}
-  dialog{border:none;border-radius:16px;padding:0;max-width:420px;width:calc(100% - 24px);background:#0e1116;color:var(--text)}
-  .modal{padding:18px;border:1px solid #2a2f36;border-radius:16px}
-  .modal h3{margin:0 0 10px 0}
-  .modal p{margin:.2rem 0 .8rem 0;color:var(--sub)}
-  .modal .row{gap:8px}
-  .modal input{flex:1 1 180px;padding:10px;border-radius:10px;border:1px solid #2a2f36;background:#0b0f14;color:var(--text)}
   .controls.disabled{opacity:.5;pointer-events:none;}
+  .nav{display:flex;justify-content:space-between;gap:8px;margin-top:12px}
 </style>
 </head>
 <body>
@@ -63,18 +63,27 @@
 </header>
 
 <main>
+  <!-- Lateral -->
   <aside class="side">
     <h3>Documentos</h3>
     <div id="docList" class="doclist" role="list"></div>
     <div class="hint" style="margin-top:10px">Los documentos con candado requieren una clave encontrada en los materiales físicos.</div>
   </aside>
 
+  <!-- Principal -->
   <section class="card" aria-live="polite">
     <div class="tag">Ref: <span id="refId">—</span></div>
     <h2 id="docTitle" style="margin:.3rem 0 0.6rem 0">Documento</h2>
     <p id="docIntro" class="hint"></p>
-    <div class="imgbox"><img id="docImage" alt=""></div>
-    <div class="controls">
+
+    <!-- Audio (se muestra solo si el doc es de tipo audio) -->
+    <div id="audioBox"></div>
+
+    <!-- Imagen (se muestra solo si el doc es de tipo imagen) -->
+    <div class="imgbox" id="imgBox" style="display:none"><img id="docImage" alt=""></div>
+
+    <!-- Controles imagen -->
+    <div class="controls" id="imgControls" style="display:none">
       <label>Brillo
         <input id="br" type="range" min="0.5" max="2" step="0.01" value="1">
       </label>
@@ -84,6 +93,7 @@
       <button id="reset" class="secondary">Reiniciar</button>
       <button id="download" class="ghost">Descargar</button>
     </div>
+
     <div class="nav">
       <button id="prev" class="ghost">← Anterior</button>
       <button id="next">Siguiente →</button>
@@ -91,11 +101,12 @@
   </section>
 </main>
 
+<!-- Modal desbloqueo -->
 <dialog id="unlockDialog">
   <form method="dialog" class="modal">
     <h3>Desbloquear documento</h3>
     <p>Introduce la clave encontrada en el caso para acceder.</p>
-    <div class="row">
+    <div class="row" style="display:flex;gap:8px">
       <input id="unlockInput" placeholder="Introduce la clave" autocomplete="off" />
       <button id="unlockBtn" value="ok">Desbloquear</button>
       <button value="cancel" class="ghost">Cancelar</button>
@@ -105,44 +116,104 @@
 </dialog>
 
 <script>
+/* Siempre limpio al recargar */
 localStorage.removeItem("atlas_web_state_v1");
 
+/* === Definición de documentos ===
+   type: "audio" | "image"
+   - audio: usar audioSrc
+   - image: usar img y auto (brillo/contraste inicial)
+*/
 const DOCS = [
-  { id:"doc1", title:"ATLAS-03/001", ref:"ATLAS-03/DOC-1", intro:"Imagen encontrada tras revisar la agenda de Víctor. Ajusta brillo/contraste para revelar detalles.", img:"laboratorio_acto1.png", auto:{b:2,c:2}, locked:false },
-  { id:"doc2", title:"ATLAS-03/002", ref:"ATLAS-03/DOC-2", intro:"Contenido protegido. Requiere la clave descubierta en el Acto 1.", img:"locked_placeholder.png", locked:true, pass:"Carmen1706" },
-  { id:"doc3", title:"ATLAS-03/003", ref:"ATLAS-03/DOC-3", intro:"Acceso restringido. Necesitas una segunda clave del Acto 2.", img:"locked_placeholder.png", locked:true, pass:"MUELLE" }
+  {
+    id:"doc1",
+    type:"audio",
+    title:"ATLAS-03/0001",
+    ref:"ATLAS-03/DOC-0001",
+    intro:"Mensaje inicial del Dr. Serrano.",
+    audioSrc:"audio_victor.mp3",
+    locked:false
+  },
+  {
+    id:"doc2",
+    type:"image",
+    title:"ATLAS-03/0002",
+    ref:"ATLAS-03/DOC-0002",
+    intro:"Imagen del laboratorio. Ajusta brillo/contraste para revelar detalles.",
+    img:"laboratorio_acto1.png",
+    auto:{b:2,c:2},
+    locked:true,
+    pass:"carmen1706"
+  },
+  {
+    id:"doc3",
+    type:"image",
+    title:"ATLAS-03/0003",
+    ref:"ATLAS-03/DOC-0003",
+    intro:"Contenido protegido. Requiere la clave obtenida en el Acto 2.",
+    img:"",
+    auto:{b:1,c:1},
+    locked:true,
+    pass:"muelle"
+  }
 ];
 
 const $ = sel => document.querySelector(sel);
-let state = { unlocked:{doc1:true}, current:"doc1" };
+let state = { unlocked:{ doc1:true }, current:"doc1" };
 
-function setControlsDisabled(v){
-  ["br","ct","reset","download"].forEach(id => document.getElementById(id).disabled = v);
-  document.querySelector(".controls").classList.toggle("disabled", v);
+/* Helpers */
+function setImgControlsDisabled(v){
+  ["br","ct","reset","download"].forEach(id => { const el = document.getElementById(id); if(el) el.disabled = v; });
+  document.getElementById("imgControls").classList.toggle("disabled", v);
+}
+function applyFilters(b,c){
+  $("#br").value = b; $("#ct").value = c;
+  const img = $("#docImage");
+  img.style.setProperty("--b", b);
+  img.style.setProperty("--c", c);
 }
 
+/* Lista lateral */
 function renderList(){
-  const docList = $("#docList");
-  docList.innerHTML = "";
+  const list = $("#docList");
+  list.innerHTML = "";
   DOCS.forEach(d=>{
     const li = document.createElement("button");
     li.className = "doc";
     li.setAttribute("role","listitem");
     li.dataset.id = d.id;
+
     const name = document.createElement("span");
-    name.className="name";
+    name.className = "name";
     name.textContent = d.title;
+
     const lock = document.createElement("span");
-    lock.className="lock";
+    lock.className = "lock";
     const isOpen = state.unlocked[d.id] || !d.locked;
-    if (d.locked) lock.textContent = isOpen ? "🔓" : "🔒";
+    lock.textContent = d.locked ? (isOpen ? "🔓" : "🔒") : "";
+
     li.appendChild(name); li.appendChild(lock);
-    if(state.current===d.id) li.setAttribute("aria-current","true");
+    if(state.current === d.id) li.setAttribute("aria-current","true");
     li.onclick = ()=> openDoc(d.id);
-    docList.appendChild(li);
+    list.appendChild(li);
   });
 }
 
+/* Render audio */
+function renderAudio(d, isOpen){
+  const box = $("#audioBox");
+  if(d.type !== "audio"){ box.innerHTML = ""; return; }
+  if(isOpen){
+    box.innerHTML = `
+      <div class="caption">Audio 1 — Mensaje de Víctor</div>
+      <audio controls preload="auto" src="${d.audioSrc}"></audio>
+    `;
+  } else {
+    box.innerHTML = "";
+  }
+}
+
+/* Abrir documento */
 function openDoc(id){
   state.current = id;
   const d = DOCS.find(x=>x.id===id);
@@ -152,47 +223,52 @@ function openDoc(id){
   $("#docTitle").textContent = d.title;
   $("#docIntro").textContent = d.intro;
 
-  const box = document.querySelector(".imgbox");
+  const imgBox = $("#imgBox");
   const img = $("#docImage");
+  const imgControls = $("#imgControls");
 
-  if(isOpen){
-    img.src = d.img;
-    img.alt = d.title;
-    box.classList.remove("locked");
-    setControlsDisabled(false);
-    $("#br").value = d.auto?.b || 1;
-    $("#ct").value = d.auto?.c || 1;
-    setFilters();
+  if(d.type === "audio"){
+    // Mostrar audio, ocultar imagen/controles
+    renderAudio(d, true);
+    imgBox.style.display = "none";
+    imgControls.style.display = "none";
   } else {
-    img.src = d.img || "";
-    img.alt = "Documento bloqueado";
-    box.classList.add("locked");
-    setControlsDisabled(true);
-    unlockDialog.showModal();
-    $("#br").value = 1;
-    $("#ct").value = 1;
-    setFilters();
+    // Es imagen: limpiar audio y mostrar img (según bloqueo)
+    renderAudio(d, false);
+    imgBox.style.display = "block";
+    imgControls.style.display = "flex";
+
+    if(isOpen){
+      img.src = d.img || "";
+      img.alt = d.title;
+      imgBox.classList.remove("locked");
+      setImgControlsDisabled(false);
+      applyFilters(d.auto?.b || 1, d.auto?.c || 1);
+    } else {
+      img.src = ""; // no mostramos nada si está bloqueado
+      img.alt = "Documento bloqueado";
+      imgBox.classList.add("locked");
+      setImgControlsDisabled(true);
+      applyFilters(1,1);
+      unlockDialog.showModal();
+    }
   }
 
   renderList();
 }
 
-const setFilters = ()=>{
-  const img = $("#docImage");
-  img.style.setProperty("--b", $("#br").value);
-  img.style.setProperty("--c", $("#ct").value);
-};
-$("#br").oninput = $("#ct").oninput = setFilters;
-
-$("#reset").onclick = ()=>{ $("#br").value = 2; $("#ct").value = 2; setFilters(); };
+/* Sliders */
+$("#br").oninput = $("#ct").oninput = ()=> applyFilters(parseFloat($("#br").value), parseFloat($("#ct").value));
+$("#reset").onclick = ()=> applyFilters(2,2);
 $("#download").onclick = ()=>{
   const d = DOCS.find(x=>x.id===state.current);
-  if(!d) return;
+  if(!d || d.type!=="image" || !d.img) return;
   const a = document.createElement("a");
-  a.href = d.img;
-  a.download = d.img.split("/").pop();
+  a.href = d.img; a.download = d.img.split("/").pop();
   a.click();
 };
+
+/* Navegación */
 $("#prev").onclick = ()=>{
   const idx = DOCS.findIndex(x=>x.id===state.current);
   if(idx>0) openDoc(DOCS[idx-1].id);
@@ -202,29 +278,29 @@ $("#next").onclick = ()=>{
   if(idx<DOCS.length-1) openDoc(DOCS[idx+1].id);
 };
 
-const unlockDialog = document.getElementById("unlockDialog");
-document.getElementById("unlockBtn").onclick = (ev)=>{
+/* Desbloqueo */
+const unlockDialog = $("#unlockDialog");
+$("#unlockBtn").onclick = (ev)=>{
   ev.preventDefault();
-  const code = document.getElementById("unlockInput").value.trim();
+  const code = $("#unlockInput").value.trim();
   const d = DOCS.find(x=>x.id===state.current);
   if((d.pass||"").toLowerCase() === code.toLowerCase()){
     state.unlocked[d.id] = true;
-    document.getElementById("unlockMsg").textContent = "Desbloqueado ✅";
+    $("#unlockMsg").textContent = "Desbloqueado ✅";
     setTimeout(()=>{
       unlockDialog.close();
-      document.querySelector(".imgbox").classList.remove("locked");
-      setControlsDisabled(false);
+      $("#unlockInput").value = ""; $("#unlockMsg").textContent = "";
       openDoc(d.id);
     }, 300);
   } else {
-    document.getElementById("unlockMsg").textContent = "Clave incorrecta.";
+    $("#unlockMsg").textContent = "Clave incorrecta.";
   }
 };
 unlockDialog.addEventListener("close", ()=>{
-  document.getElementById("unlockInput").value="";
-  document.getElementById("unlockMsg").textContent="";
+  $("#unlockInput").value=""; $("#unlockMsg").textContent="";
 });
 
+/* Init */
 renderList();
 openDoc(state.current);
 </script>
