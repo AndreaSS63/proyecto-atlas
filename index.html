@@ -105,7 +105,7 @@
     <h3>Desbloquear documento</h3>
     <p>Introduce la clave encontrada en el caso para acceder.</p>
     <div class="row">
-      <input id="unlockInput" placeholder="Ej.: Carmen1706" autocomplete="off" />
+      <input id="unlockInput" placeholder="Introduce la clave" autocomplete="off" />
       <button id="unlockBtn" value="ok">Desbloquear</button>
       <button value="cancel" class="ghost">Cancelar</button>
     </div>
@@ -117,7 +117,7 @@
 const DOCS = [
   {
     id:"doc1",
-    title:"Foto del laboratorio — Acto 1",
+    title:"ATLAS‑03/001",
     ref:"ATLAS‑03/DOC‑1",
     intro:"Imagen encontrada tras revisar la agenda de Víctor. Ajusta brillo/contraste para revelar detalles.",
     img:"laboratorio_acto1.png",
@@ -126,7 +126,7 @@ const DOCS = [
   },
   {
     id:"doc2",
-    title:"Sección 2 (bloqueada)",
+    title:"ATLAS‑03/002",
     ref:"ATLAS‑03/DOC‑2",
     intro:"Contenido protegido. Requiere la clave descubierta en el Acto 1.",
     img:"locked_placeholder.png",
@@ -136,7 +136,7 @@ const DOCS = [
   },
   {
     id:"doc3",
-    title:"Documento final (bloqueado)",
+    title:"ATLAS‑03/003",
     ref:"ATLAS‑03/DOC‑3",
     intro:"Acceso restringido. Necesitas una segunda clave del Acto 2.",
     img:"locked_placeholder.png",
@@ -170,7 +170,12 @@ function renderList(){
     const lock = document.createElement("span");
     lock.className="lock";
     const isOpen = state.unlocked[d.id] || !d.locked;
-    lock.textContent = d.locked && !isOpen ? "🔒" : "🔓";
+// Solo mostramos candado si el doc está BLOQUEADO
+if (d.locked) {
+  lock.textContent = isOpen ? "🔓" : "🔒";
+} else {
+  lock.textContent = ""; // sin icono para docs abiertos/no bloqueados
+}
     li.appendChild(name); li.appendChild(lock);
     if(state.current===d.id) li.setAttribute("aria-current","true");
     li.onclick = ()=> openDoc(d.id);
