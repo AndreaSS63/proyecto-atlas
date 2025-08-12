@@ -135,17 +135,15 @@ const DOCS = [
 ];
 
 const $ = sel => document.querySelector(sel);
-const stateKey = "atlas_web_state_v1";
-const loadState = ()=> JSON.parse(localStorage.getItem(stateKey) || "{}");
-const saveState = s => localStorage.setItem(stateKey, JSON.stringify(s));
+const stateKey = null;                 // no usamos storage
+const loadState = ()=> ({ });          // siempre vacío
+const saveState = (_)=> {};            // no guarda nada
 
 let state = loadState();
-if(!state.unlocked) state.unlocked = { doc1: true };
-if(!state.notes) state.notes = {};
-if(!state.current || !DOCS.find(x=>x.id===state.current)) state.current = "doc1";
-const cur = DOCS.find(x=>x.id===state.current);
-if(cur && cur.locked && !state.unlocked[state.current]) state.current = "doc1";
-saveState(state);
+// estado fijo en cada carga
+state.unlocked = { doc1: true };
+state.notes = {};
+state.current = "doc1";
 
 function setControlsDisabled(v){
   const ids = ["br","ct","reveal","reset","download"];
