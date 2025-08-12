@@ -28,8 +28,6 @@
   .col{flex:1 1 320px;min-width:280px}
   .imgbox{border:1px solid #23262b;border-radius:12px;overflow:hidden;background:#0e1116;position:relative}
   #docImage{display:block;width:100%;height:auto;filter:brightness(var(--b,1)) contrast(var(--c,1));transition:filter .2s ease}
-
-  /* Cajetín para bloqueados */
   .imgbox.locked::after{
     content:"Documento bloqueado";
     position:absolute; inset:0;
@@ -37,7 +35,6 @@
     background:rgba(0,0,0,.65);
     font-weight:700; letter-spacing:.08em;
   }
-
   .controls{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
   .controls label{font-size:12px;color:var(--sub);display:flex;flex-direction:column;gap:6px}
   input[type="range"]{width:200px}
@@ -90,7 +87,6 @@
           <label>Contraste
             <input id="ct" type="range" min="0.5" max="2" step="0.01" value="1">
           </label>
-          <button id="reveal">Usar pista (auto-ajuste)</button>
           <button id="reset" class="secondary">Reiniciar</button>
           <button id="download" class="ghost">Descargar</button>
         </div>
@@ -100,7 +96,7 @@
       <div class="col">
         <h3 style="margin:4px 0 8px 0">Notas</h3>
         <div class="notes">
-          <textarea id="notes" placeholder="Anota aquí tus hallazgos. Se guardan automáticamente en este navegador."></textarea>
+          <textarea id="notes" placeholder="Anota aquí tus hallazgos."></textarea>
         </div>
         <div class="nav">
           <button id="prev" class="ghost">← Anterior</button>
@@ -125,56 +121,19 @@
 </dialog>
 
 <script>
-/* 🔄 Sin persistencia: siempre empieza limpio en doc1 */
 localStorage.removeItem("atlas_web_state_v1");
 
 const DOCS = [
-  {
-    id:"doc1",
-    title:"ATLAS-03/001",
-    ref:"ATLAS-03/DOC-1",
-    intro:"Imagen encontrada tras revisar la agenda de Víctor. Ajusta brillo/contraste para revelar detalles.",
-    img:"laboratorio_acto1.png",
-    // ← Ajusta aquí los valores
-    auto:{ init:{b:2,c:2}, hint:{b:1.40,c:1.75} },
-    locked:false
-  },
-  {
-    id:"doc2",
-    title:"ATLAS-03/002",
-    ref:"ATLAS-03/DOC-2",
-    intro:"Contenido protegido. Requiere la clave descubierta en el Acto 1.",
-    img:"",
-    auto:{ init:{b:1,c:1}, hint:{b:1.3,c:1.2} },
-    locked:true,
-    pass:"Carmen1706"
-  },
-  {
-    id:"doc3",
-    title:"ATLAS-03/003",
-    ref:"ATLAS-03/DOC-3",
-    intro:"Acceso restringido. Necesitas una segunda clave del Acto 2.",
-    img:"",
-    auto:{ init:{b:1,c:1}, hint:{b:1.3,c:1.2} },
-    locked:true,
-    pass:"MUELLE"
-  }
+  { id:"doc1", title:"ATLAS-03/001", ref:"ATLAS-03/DOC-1", intro:"Imagen encontrada tras revisar la agenda de Víctor. Ajusta brillo/contraste para revelar detalles.", img:"laboratorio_acto1.png", auto:{b:2,c:2}, locked:false },
+  { id:"doc2", title:"ATLAS-03/002", ref:"ATLAS-03/DOC-2", intro:"Contenido protegido. Requiere la clave descubierta en el Acto 1.", img:"locked_placeholder.png", locked:true, pass:"Carmen1706" },
+  { id:"doc3", title:"ATLAS-03/003", ref:"ATLAS-03/DOC-3", intro:"Acceso restringido. Necesitas una segunda clave del Acto 2.", img:"locked_placeholder.png", locked:true, pass:"MUELLE" }
 ];
 
 const $ = sel => document.querySelector(sel);
-
-// Storage “no‑op”
-const loadState = ()=> ({});
-const saveState = (_)=> {};
-
-let state = loadState();
-state.unlocked = { doc1:true };
-state.notes = {};
-state.current = "doc1";
+let state = { unlocked:{doc1:true}, notes:{}, current:"doc1" };
 
 function setControlsDisabled(v){
-  const ids = ["br","ct","reveal","reset","download"];
-  ids.forEach(id => document.getElementById(id).disabled = v);
+  ["br","ct","reset","download"].forEach(id => document.getElementById(id).disabled = v);
   document.querySelector(".controls").classList.toggle("disabled", v);
 }
 
@@ -186,17 +145,13 @@ function renderList(){
     li.className = "doc";
     li.setAttribute("role","listitem");
     li.dataset.id = d.id;
-
     const name = document.createElement("span");
     name.className="name";
     name.textContent = d.title;
-
     const lock = document.createElement("span");
     lock.className="lock";
     const isOpen = state.unlocked[d.id] || !d.locked;
     if (d.locked) lock.textContent = isOpen ? "🔓" : "🔒";
-    else lock.textContent = "";
-
     li.appendChild(name); li.appendChild(lock);
     if(state.current===d.id) li.setAttribute("aria-current","true");
     li.onclick = ()=> openDoc(d.id);
@@ -204,16 +159,8 @@ function renderList(){
   });
 }
 
-function applyFilters(b, c){
-  $("#br").value = b;
-  $("#ct").value = c;
-  const img = $("#docImage");
-  img.style.setProperty("--b", b);
-  img.style.setProperty("--c", c);
-}
-
 function openDoc(id){
-  state.current = id; saveState(state);
+  state.current = id;
   const d = DOCS.find(x=>x.id===id);
   const isOpen = state.unlocked[id] || !d.locked;
 
@@ -225,69 +172,47 @@ function openDoc(id){
   const img = $("#docImage");
 
   if(isOpen){
-    // cargar imagen (solo si la hay)
-    if (d.img) img.src = d.img;
+    img.src = d.img;
     img.alt = d.title;
-
-    // limpiar placeholder
-    img.style.background=""; img.style.height=""; img.style.objectFit="";
     box.classList.remove("locked");
     setControlsDisabled(false);
-
-    // ✅ filtros INICIALES (como tu captura)
-    applyFilters(d.auto.init.b, d.auto.init.c);
-
+    $("#br").value = d.auto?.b || 1;
+    $("#ct").value = d.auto?.c || 1;
+    setFilters();
   } else {
-    // nada de imagen real
-    img.src = "";
+    img.src = d.img || "";
     img.alt = "Documento bloqueado";
-    img.style.background = "rgba(0,0,0,0.85)";
-    img.style.height = "320px";
-    img.style.objectFit = "cover";
     box.classList.add("locked");
     setControlsDisabled(true);
-
-    // sliders neutros mientras está bloqueado
-    applyFilters(1,1);
-
     unlockDialog.showModal();
+    $("#br").value = 1;
+    $("#ct").value = 1;
+    setFilters();
   }
 
   $("#notes").value = state.notes[id] || "";
   renderList();
 }
 
-// Sliders en vivo
-$("#br").oninput = $("#ct").oninput = ()=>{
-  const b = parseFloat($("#br").value);
-  const c = parseFloat($("#ct").value);
+const setFilters = ()=>{
   const img = $("#docImage");
-  img.style.setProperty("--b", b);
-  img.style.setProperty("--c", c);
+  img.style.setProperty("--b", $("#br").value);
+  img.style.setProperty("--c", $("#ct").value);
 };
+$("#br").oninput = $("#ct").oninput = setFilters;
 
-// 🟦 Botón “Usar pista”: aplica los valores HINT del doc actual
-$("#reveal").onclick = ()=>{
-  const d = DOCS.find(x=>x.id===state.current);
-  applyFilters(d.auto.hint.b, d.auto.hint.c);
-};
-
-// ♻️ Reiniciar a los valores INICIALES del doc
-$("#reset").onclick = ()=>{
-  const d = DOCS.find(x=>x.id===state.current);
-  applyFilters(d.auto.init.b, d.auto.init.c);
-};
-
-// Descargar imagen actual
+$("#reset").onclick = ()=>{ $("#br").value = 1; $("#ct").value = 1; setFilters(); };
 $("#download").onclick = ()=>{
   const d = DOCS.find(x=>x.id===state.current);
-  if(!d || !d.img) return;
+  if(!d) return;
   const a = document.createElement("a");
-  a.href = d.img; a.download = d.img.split("/").pop();
+  a.href = d.img;
+  a.download = d.img.split("/").pop();
   a.click();
 };
-
-// Navegación
+$("#notes").addEventListener("input", e=>{
+  state.notes[state.current] = e.target.value;
+});
 $("#prev").onclick = ()=>{
   const idx = DOCS.findIndex(x=>x.id===state.current);
   if(idx>0) openDoc(DOCS[idx-1].id);
@@ -297,20 +222,17 @@ $("#next").onclick = ()=>{
   if(idx<DOCS.length-1) openDoc(DOCS[idx+1].id);
 };
 
-// Modal desbloqueo
 const unlockDialog = document.getElementById("unlockDialog");
 document.getElementById("unlockBtn").onclick = (ev)=>{
   ev.preventDefault();
   const code = document.getElementById("unlockInput").value.trim();
   const d = DOCS.find(x=>x.id===state.current);
   if((d.pass||"").toLowerCase() === code.toLowerCase()){
-    state.unlocked[d.id] = true; saveState(state);
+    state.unlocked[d.id] = true;
     document.getElementById("unlockMsg").textContent = "Desbloqueado ✅";
     setTimeout(()=>{
       unlockDialog.close();
       document.querySelector(".imgbox").classList.remove("locked");
-      const img = document.getElementById("docImage");
-      img.style.background=""; img.style.height=""; img.style.objectFit="";
       setControlsDisabled(false);
       openDoc(d.id);
     }, 300);
@@ -323,19 +245,8 @@ unlockDialog.addEventListener("close", ()=>{
   document.getElementById("unlockMsg").textContent="";
 });
 
-// Notas (no persistimos, pero dejamos el handler por si cambias luego)
-document.getElementById("notes").addEventListener("input", e=>{
-  state.notes[state.current] = e.target.value; saveState(state);
-});
-
-// Inicial
 renderList();
 openDoc(state.current);
-
-// Doble toque (móvil) = pista
-let t=0; document.getElementById("docImage").addEventListener('touchend', ()=>{
-  const now=Date.now(); if(now-t<350){ document.getElementById("reveal").click(); } t=now;
-});
 </script>
 </body>
 </html>
